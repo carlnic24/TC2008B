@@ -82,32 +82,100 @@ function shapeF_centered() : twgl.Arrays {
     return arrays;
 }
 
-function smiley(radius: number) : twgl.Arrays {
+function smiley(radius: number, bodyColor: number[] = [0.78, 0.6, 0.35, 1]) : twgl.Arrays {
     // The arrays are initially empty
     const positionData: number[] = [];
     const colorData: number[] = [];
     const indexData: number[] = [];
 
-    // TODO: Create you own shape for a smiley face
-    //  - Add coordinates as pairs of elements into the positionData array
-    //  - Add color values as 3 values (RBG) into the colorData array
-    //  - Add index for the order in which vertices are connected, 3 values for each triangle
-    // HINT: You can use polar coordinates to define the positions of vertices,
-    // using the radius and an angle. Then convert them to polar coordinates.
+    // Create the shape of a Pou:
+    //  - Coordinates are added as pairs of elements into the positionData array
+    //  - Color values are added as 4 values (RGBA) into the colorData array
+    //  - Indices define the order in which vertices are connected, 3 values for each triangle
+    // Polar coordinates are used to define the vertices, using the radius and an angle.
 
-    // Sample data for a single yellow triangle. Replace with your values.
-    positionData.push(0, 100);
-    positionData.push(-120, -100);
-    positionData.push(120, -100);
-    colorData.push(0.9, 0.8, 0, 1);
-    colorData.push(0.9, 0.8, 0, 1);
-    colorData.push(0.9, 0.8, 0, 1);
+    // Helper: adds a convex polygon as a triangle fan around a center vertex
+    const addFan = (cx: number, cy: number, pts: number[][], color: number[]) => {
+        const start = positionData.length / 2;   // index of the center vertex
 
-    indexData.push(0, 2, 1);
+        // Center vertex
+        positionData.push(cx, cy);
+        colorData.push(...color);
 
+        // Vertices on the perimeter
+        for (const [x, y] of pts) {
+            positionData.push(x, y);
+            colorData.push(...color);
+        }
 
+        // One triangle per side: center, current vertex, next vertex
+        const n = pts.length;
+        for (let i = 0; i < n; i++) {
+            indexData.push(start, start + 1 + i, start + 1 + ((i + 1) % n));
+        }
+    };
 
+    // Helper: adds a filled disc (polar -> cartesian)
+    const addDisc = (cx: number, cy: number, r: number,
+                     color: number[], sides: number = 32) => {
+        const pts: number[][] = [];
+        for (let i = 0; i < sides; i++) {
+            const angle = (2 * Math.PI * i) / sides;
+            pts.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
+        }
+        addFan(cx, cy, pts, color);
+    };
 
+    // Helper: adds the body of Pou, a squarish circle that is
+    // narrow at the top and wide at the bottom
+    const addBody = (scale: number, color: number[], sides: number = 64) => {
+        const p = 0.75;
+        const pts: number[][] = [];
+        for (let i = 0; i < sides; i++) {
+            const t = (2 * Math.PI * i) / sides;
+            const c = Math.cos(t);
+            const s = Math.sin(t);
+            const x = Math.sign(c) * Math.pow(Math.abs(c), p);
+            const y = Math.sign(s) * Math.pow(Math.abs(s), p);
+            const k = 0.45 + 0.55 * (1 - y) / 2;
+            pts.push([x * k * radius * scale, y * 0.9 * radius * scale]);
+        }
+        addFan(0, 0, pts, color);
+    };
+
+    const outline = [0.15, 0.1, 0.05, 1];
+    const black   = [0.0, 0.0, 0.0, 1];
+    const white   = [1.0, 1.0, 1.0, 1];
+
+    // Body (drawn first, so the other shapes appear on top of it).
+    // A slightly larger dark copy behind makes the outline
+    addBody(1.04, outline);
+    addBody(1.0, bodyColor);
+
+    // Eyes
+    for (const sx of [-1, 1]) {
+        const ex = sx * 0.28 * radius;
+        const ey = 0.25 * radius;
+        addDisc(ex, ey, 0.23 * radius, black, 28);                              // Outline
+        addDisc(ex, ey, 0.20 * radius, white, 28);                              // White
+        addDisc(ex, ey - 0.01 * radius, 0.14 * radius, black, 24);              // Pupil
+        addDisc(ex + 0.04 * radius, ey + 0.05 * radius, 0.04 * radius, white, 12); // Highlight
+    }
+
+    // Mouth: a thin dark line
+    const m = positionData.length / 2;
+    const mw = 0.1 * radius;
+    const my = -0.05 * radius;
+    const mh = 0.009 * radius;
+    positionData.push(-mw, my - mh);
+    positionData.push( mw, my - mh);
+    positionData.push( mw, my + mh);
+    positionData.push(-mw, my + mh);
+    for (let i = 0; i < 4; i++) {
+        colorData.push(...outline);
+    }
+    indexData.push(m, m + 1, m + 2);
+    indexData.push(m, m + 2, m + 3);
 
     // Build the final object with the arrays for positions, colors, and indices
     const arrays: twgl.Arrays = {
@@ -115,8 +183,6 @@ function smiley(radius: number) : twgl.Arrays {
         a_color:    { numComponents: 4, data: colorData },
         indices:    { numComponents: 3, data: indexData },
     };
-
-    console.log(arrays);
 
     return arrays;
 }
