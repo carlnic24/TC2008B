@@ -9,7 +9,7 @@
 
 import * as twgl from 'twgl-base.js';
 import GUI from 'lil-gui';
-import { diamond, shapeF_centered, smiley } from '../libs/shapes.js';
+import { diamond, smiley } from '../libs/shapes.js';
 import { V2, M3, type Vec2, type Mat3 } from '../libs/2d-lib.js';
 import { Scene } from '../libs/scene.js';
 import { type Color } from '../libs/color.js';
@@ -18,19 +18,33 @@ import { type Color } from '../libs/color.js';
 import vsGLSL from './vs_matrices_vcolor.glsl?raw';
 import fsGLSL from './fs_vertex_color.glsl?raw';
 
+type Step = 'scale' | 'rotation' | 'translation';
+
+// Transformation steps, listed in the order in which they are APPLIED
+const ORDERS: Record<string, Step[]> = {
+    'scale -> rotation -> translation': ['scale', 'rotation', 'translation'],
+    'scale -> translation -> rotation': ['scale', 'translation', 'rotation'],
+    'translation -> scale -> rotation': ['translation', 'scale', 'rotation'],
+    'rotation -> translation -> scale': ['rotation', 'translation', 'scale'],
+    'rotation -> scale -> translation': ['rotation', 'scale', 'translation'],
+};
 
 /*
  * Subclass of Scene with the particular objects and settings for this example.
  * Specifies the objects that will be used, and the UI operations available.
  */
 class RotationScene extends Scene {
+    // Order in which the transformations are applied (selected in the GUI)
+    order: string = 'scale -> translation -> rotation';
+
     constructor(gl: WebGL2RenderingContext) {
         super(gl, vsGLSL, fsGLSL);
 
         // Create the objects for this scene
         const model = this.addObject('model', smiley(150),
-            [ Math.random(), Math.random(), Math.random(), 1 ]);
-        model.transforms.t.x = gl.canvas.width / 2;
+            [ 0.78, 0.6, 0.35, 1 ]);
+        // The model starts away from the pivot, to see it rotate around it
+        model.transforms.t.x = gl.canvas.width / 2 + 200;
         model.transforms.t.y = gl.canvas.height / 2;
 
         const pivot = this.addObject('pivot', diamond(30),
@@ -57,16 +71,28 @@ class RotationScene extends Scene {
                                                    pivot.transforms.t.y);
 
         // Transform matrices for the model
-        // TODO: Create the matrices necessary
+        const scaleMatrixModel: Mat3 = M3.scale(v2_scale);
+        const translateMatrixModel: Mat3 = M3.translation(v2_trans);
+        const rotateMatrixModel: Mat3 = M3.rotation(model.transforms.rr.z);
 
+        // Rotation around the pivot: move the pivot to the center,
+        // rotate, and move the pivot back to its original position
+        const rotateAroundPivot: Mat3 = M3.multiply(
+            M3.translation(v2_center_to_pivot),
+            M3.multiply(rotateMatrixModel, M3.translation(v2_pivot_to_center)));
 
+        const steps: Record<Step, Mat3> = {
+            scale: scaleMatrixModel,
+            rotation: rotateAroundPivot,
+            translation: translateMatrixModel,
+        };
 
-        // Create a composite transform matrix
+        // Create a composite transform matrix, multiplying the matrices
+        // in the order selected in the GUI
         let modelTransforms: Mat3 = M3.identity();
-        // TODO: Multiply the matrices in the correct order to obtain the required results
-
-
-
+        for (const step of ORDERS[this.order]) {
+            modelTransforms = M3.multiply(steps[step], modelTransforms);
+        }
 
         gl.useProgram(programInfo.program);
 
@@ -103,6 +129,9 @@ class RotationScene extends Scene {
 
         const gui = new GUI();
 
+        // Drop-down menu to select the order of the transformations
+        gui.add(this, 'order', Object.keys(ORDERS)).name('Order');
+
         const modelFolder = gui.addFolder('Model');
 
         const traFolder = modelFolder.addFolder('Translation');
@@ -131,10 +160,15 @@ class RotationScene extends Scene {
                 model.transforms.s.y = value;
             });
 
+        // The shader uses the color of the vertices, so the body color
+        // is changed by updating the color buffer of the model
         const colorFolder = modelFolder.addFolder('Color');
         colorFolder.addColor(model, 'color')
             .onChange((value: Color) => {
-                model.color = value;
+                const c = [value[0], value[1], value[2], 1];
+                const newArrays = smiley(150, c);
+                twgl.setAttribInfoBufferFromArray(
+                    gl, model.bufferInfo.attribs!.a_color, newArrays.a_color);
             });
 
         const pivotFolder = gui.addFolder('Pivot');

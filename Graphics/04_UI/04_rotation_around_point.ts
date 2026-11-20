@@ -63,16 +63,18 @@ class RotationScene extends Scene {
 
         // Transform matrices for the model
         // TODO: Create the matrices necessary
-
-
+        const translateMatrixModel: Mat3 = M3.translation(v2_trans);
+        const scaleMatrixModel: Mat3 = M3.scale(v2_scale);
+        const rotateMatrixModel: Mat3 = M3.rotation(model.transforms.rr.z);
 
         // Create a composite transform matrix
         let modelTransforms: Mat3 = M3.identity();
         // TODO: Multiply the matrices in the correct order to obtain the required results
+        modelTransforms = M3.multiply(rotateMatrixModel, modelTransforms);
+        modelTransforms = M3.multiply(scaleMatrixModel, modelTransforms);
+        modelTransforms = M3.multiply(translateMatrixModel, modelTransforms);
 
-
-
-
+        
         gl.useProgram(programInfo.program);
 
         let uniforms = {
