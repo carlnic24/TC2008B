@@ -163,7 +163,9 @@ class PhongActivityScene extends Scene {
         // (this.camera). All of it lives in this.lights[0] and
         // this.camera (see Light3D and Camera3D in ../../libs).
         //
-        // twgl.setUniforms(programInfo, { /* ... */ });
+        twgl.setUniforms(programInfo, {
+            u_ambientLight: this.lights[0].ambient,
+        });
 
         // Check for camera keys and update the camera position
         this.camera.checkKeys();
