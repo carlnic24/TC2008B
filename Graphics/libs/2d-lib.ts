@@ -54,6 +54,12 @@ export class V2 {
     //      returns the multiplication of each element of the vector by the scalar
     //      inside the 3rd Vec2
 
+    static scale(u: Vec2, s: number, dest?: Vec2): Vec2 {
+        dest = dest || new Float32Array(2);
+        dest[X] = u[X] * s;
+        dest[Y] = u[Y] * s;
+        return dest;
+    }
 }
 
 // 3x3 matrices used for 2D transformations
@@ -120,17 +126,8 @@ export class M3 {
         const b21 = b[2 * 3 + 1];
         const b22 = b[2 * 3 + 2];
 
-        /*
-        // Matrix guide:
-        // Consider the rows and columns are transposed
-        a00 a01 a02            b00 b01 b02
-        a10 a11 a12            b10 b11 b12
-        a20 a21 a22            b20 b21 b22
-        */
-
         // The matrices are oriented transposed, so the multiplication
         // must be adjusted accordingly
-
         return [
             a00 * b00 + a10 * b01 + a20 * b02,
             a01 * b00 + a11 * b01 + a21 * b02,
